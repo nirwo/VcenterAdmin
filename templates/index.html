@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="vms">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="float-start">Virtual Machines</h5>
+                <div class="float-end">
+                    <button class="btn btn-sm btn-primary" id="refresh-vms">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="vm-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Power State</th>
+                                <th>Guest OS</th>
+                                <th>CPU</th>
+                                <th>Memory (MB)</th>
+                                <th>IP Address</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="performance">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="float-start">Performance Dashboard</h5>
+                <div class="float-end">
+                    <select class="form-select form-select-sm" id="metric-selector">
+                        <option value="cpu">CPU Usage</option>
+                        <option value="memory">Memory Usage</option>
+                        <option value="disk">Disk I/O</option>
+                        <option value="network">Network I/O</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="performance-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VM Action Modal -->
+<div class="modal fade" id="vmActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">VM Action Confirmation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to <span id="action-text"></span> the VM "<span id="vm-name"></span>"?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-action">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // This will be moved to main.js
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize DataTable
+        const vmTable = $('#vm-table').DataTable({
+            pageLength: 25,
+            order: [[0, 'asc']]
+        });
+
+        // Load VMs
+        function loadVMs() {
+            fetch('/api/vms')
+                .then(response => response.json())
+                .then(data => {
+                    vmTable.clear();
+                    data.forEach(vm => {
+                        vmTable.row.add([
+                            vm.name,
+                            vm.power_state,
+                            vm.guest_os,
+                            vm.cpu,
+                            vm.memory_mb,
+                            vm.ip_address,
+                            `<div class="btn-group">
+                                <button class="btn btn-sm btn-success" onclick="vmAction('${vm.name}', 'power_on')">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
+                                <button class="btn btn-sm btn-warning" onclick="vmAction('${vm.name}', 'reset')">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="vmAction('${vm.name}', 'power_off')">
+                                    <i class="bi bi-stop-fill"></i>
+                                </button>
+                            </div>`
+                        ]);
+                    });
+                    vmTable.draw();
+                });
+        }
+
+        // Initial load
+        loadVMs();
+
+        // Refresh button
+        document.getElementById('refresh-vms').addEventListener('click', loadVMs);
+
+        // Performance chart
+        let performanceChart = null;
+
+        function updatePerformanceChart() {
+            const metric = document.getElementById('metric-selector').value;
+            fetch(`/api/performance?metric=${metric}`)
+                .then(response => response.json())
+                .then(data => {
+                    const layout = {
+                        title: `${metric.toUpperCase()} Usage Over Time`,
+                        xaxis: { title: 'Time' },
+                        yaxis: { title: metric === 'cpu' ? 'Percentage' : 'Usage' }
+                    };
+
+                    if (!performanceChart) {
+                        performanceChart = Plotly.newPlot('performance-chart', [data], layout);
+                    } else {
+                        Plotly.update('performance-chart', [data], layout);
+                    }
+                });
+        }
+
+        // Initial performance chart
+        updatePerformanceChart();
+
+        // Update chart when metric changes
+        document.getElementById('metric-selector').addEventListener('change', updatePerformanceChart);
+    });
+
+    function vmAction(vmName, action) {
+        const modal = new bootstrap.Modal(document.getElementById('vmActionModal'));
+        document.getElementById('vm-name').textContent = vmName;
+        document.getElementById('action-text').textContent = action.replace('_', ' ');
+        
+        document.getElementById('confirm-action').onclick = function() {
+            fetch('/api/vm/action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    vm_name: vmName,
+                    action: action
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    modal.hide();
+                    // Refresh VM list
+                    document.getElementById('refresh-vms').click();
+                }
+            });
+        };
+        
+        modal.show();
+    }
+</script>
+{% endblock %}

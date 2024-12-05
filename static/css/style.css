@@ -1,0 +1,40 @@
+.card {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    padding: 0.75rem 1.25rem;
+}
+
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+.btn-group {
+    gap: 0.25rem;
+}
+
+#performance-chart {
+    height: 500px;
+}
+
+.form-select-sm {
+    width: auto;
+}
+
+.tab-content {
+    padding: 1rem 0;
+}
+
+.navbar {
+    padding: 0.5rem 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert {
+    margin-bottom: 1rem;
+}
